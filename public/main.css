@@ -259,25 +259,7 @@ header p {
     padding: 0;
 }
 
-.delivery-option.best-deal {
-    border-color: var(--accent-grab);
-    background: rgba(0, 177, 79, 0.04);
-    position: relative;
-    overflow: hidden;
-}
 
-.delivery-option.best-deal::after {
-    content: "BEST DEAL";
-    position: absolute;
-    top: 12px;
-    right: -35px;
-    background: var(--accent-grab);
-    color: #fff;
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 0.25rem 2.5rem;
-    transform: rotate(45deg);
-}
 
 .provider-info {
     display: flex;
@@ -297,21 +279,7 @@ header p {
     font-size: 1.1rem;
 }
 
-.price-details {
-    text-align: right;
-    margin-right: 1.5rem;
-}
 
-.final-price {
-    font-size: 1.3rem;
-    font-weight: 700;
-}
-
-.original-price {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    text-decoration: line-through;
-}
 
 /* Header Controls & Theme/Lang Button Styles */
 .header-controls {

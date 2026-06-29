@@ -225,11 +225,7 @@ function App() {
 
   return (
     <Show when={t()}>
-      <div class="container animate-fade-in" style="padding-bottom: 6rem;">
-        <header>
-          <h1>{t()!.title}</h1>
-          <div class="unit-indicator">{t()!.unit}</div>
-        </header>
+      <div class="container animate-fade-in" style="padding-bottom: 6rem; padding-top: 3rem;">
 
         <div class="comparison-list">
           <Show 
@@ -246,10 +242,8 @@ function App() {
                   const meta = providerMeta[p.key];
                   const deliveryFee = p.original - 250;
                   const discount = p.original - p.final;
-                  const isBest = compData().best === p.key;
-
                   return (
-                    <div class={`delivery-option ${isBest ? 'best-deal' : ''}`} id={`opt-${p.key}`}>
+                    <div class="delivery-option" id={`opt-${p.key}`}>
                       <div class="option-container">
                         <div class="option-header">
                           <div class="provider-info">
@@ -260,9 +254,6 @@ function App() {
                                 {t()![meta.promoKey]}
                               </div>
                             </div>
-                          </div>
-                          <div class="price-details">
-                            <div class="final-price">{p.final.toFixed(0)}</div>
                           </div>
                         </div>
                         <div class="option-details">
