@@ -21,6 +21,7 @@ pub struct AppState {
     pub db_path: &'static str,
     pub static_files: HashMap<&'static str, Vec<u8>>,
     pub cpu_tracker: Mutex<CpuTracker>,
+    pub icon_urls: RwLock<HashMap<String, String>>,
 }
 
 impl AppState {
@@ -40,6 +41,7 @@ impl AppState {
             db_path,
             static_files,
             cpu_tracker,
+            icon_urls: RwLock::new(HashMap::new()),
         }
     }
 

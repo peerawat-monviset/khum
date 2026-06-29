@@ -1,0 +1,4 @@
+GRAB60;grab;60
+LINEMANDEL;lineman;30
+RBH40;robinhood;40
+SHOPEE50;shopee;50

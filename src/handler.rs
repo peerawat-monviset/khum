@@ -77,8 +77,47 @@ pub fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
         "/api/sysinfo" => {
             handle_sysinfo(&mut stream);
         }
+        "/api/icon" => {
+            handle_icon(&mut stream, query, state);
+        }
         _ => {
             send_response(&mut stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", None);
+        }
+    }
+}
+
+pub fn handle_icon(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
+    let mut provider = "";
+    for param in query.split('&') {
+        let mut split = param.split('=');
+        if let (Some(key), Some(val)) = (split.next(), split.next()) {
+            if key == "provider" {
+                provider = val;
+            }
+        }
+    }
+
+    let icon_urls = state.icon_urls.read().unwrap();
+    if let Some(url) = icon_urls.get(provider) {
+        let headers = format!(
+            "HTTP/1.1 307 Temporary Redirect\r\nLocation: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            url
+        );
+        let _ = stream.write_all(headers.as_bytes());
+    } else {
+        // Fallback default SVG colors if not resolved yet
+        let fallback_url = match provider {
+            "grab" => "https://raw.githubusercontent.com/spothq/car-logos/master/logos-logos/grab.png", // or a placeholder
+            _ => "",
+        };
+        if !fallback_url.is_empty() {
+            let headers = format!(
+                "HTTP/1.1 307 Temporary Redirect\r\nLocation: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                fallback_url
+            );
+            let _ = stream.write_all(headers.as_bytes());
+        } else {
+            send_response(stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", None);
         }
     }
 }
