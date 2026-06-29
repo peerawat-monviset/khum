@@ -1,0 +1,22 @@
+# Build stage
+FROM rust:1.80-slim AS builder
+
+WORKDIR /app
+COPY . .
+
+# Compile release binary
+RUN cargo build --release
+
+# Runner stage
+FROM debian:bookworm-slim AS runner
+WORKDIR /app
+
+# Copy executable and static public assets
+COPY --from=builder /app/target/release/khum /app/
+COPY --from=builder /app/public /app/public
+
+# Expose port
+ENV PORT=8000
+EXPOSE 8000
+
+CMD ["/app/khum"]

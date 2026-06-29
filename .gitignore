@@ -1,0 +1,9 @@
+/target
+/dist
+/public/pkg
+/target/site
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+.DS_Store
