@@ -1,9 +1,9 @@
-use std::net::TcpStream;
+use tokio::net::TcpStream;
 use std::sync::Arc;
 use crate::state::AppState;
 use crate::handler::send_response;
 
-pub fn handle_calculate(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
+pub async fn handle_calculate(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
     let mut basket: f64 = 250.0;
     let mut distance: f64 = 3.5;
 
@@ -103,5 +103,5 @@ pub fn handle_calculate(stream: &mut TcpStream, query: &str, state: Arc<AppState
         json.len()
     );
 
-    send_response(stream, &headers, Some(json.as_bytes()));
+    send_response(stream, &headers, Some(json.as_bytes())).await;
 }

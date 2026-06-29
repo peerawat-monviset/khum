@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2024"
 
 [dependencies]
-# Just std.
+tokio = { version = "1.38", features = ["rt-multi-thread", "net", "io-util", "time", "macros"] }
 
 [profile.release]
 opt-level = 3

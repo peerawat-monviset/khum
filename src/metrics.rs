@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{self, BufRead, BufReader};
-use std::net::TcpStream;
+use tokio::net::TcpStream;
 use std::sync::Arc;
 use std::time::Instant;
 use crate::state::AppState;
@@ -10,7 +10,7 @@ unsafe extern "C" {
     fn sysconf(name: std::os::raw::c_int) -> std::os::raw::c_long;
 }
 
-pub fn handle_metrics(stream: &mut TcpStream, state: Arc<AppState>) {
+pub async fn handle_metrics(stream: &mut TcpStream, state: Arc<AppState>) {
     let mem_current = read_self_rss_bytes().unwrap_or(0);
 
     let mem_limit = read_cgroup_metric("/sys/fs/cgroup/memory.max")
@@ -44,10 +44,10 @@ pub fn handle_metrics(stream: &mut TcpStream, state: Arc<AppState>) {
         json.len()
     );
 
-    send_response(stream, &headers, Some(json.as_bytes()));
+    send_response(stream, &headers, Some(json.as_bytes())).await;
 }
 
-pub fn handle_sysinfo(stream: &mut TcpStream) {
+pub async fn handle_sysinfo(stream: &mut TcpStream) {
     let os = read_line_matching("/etc/os-release", "PRETTY_NAME=")
         .map(|s| s.replace("PRETTY_NAME=", "").replace("\"", ""))
         .unwrap_or_else(|_| "Unknown OS".to_string());
@@ -128,7 +128,7 @@ pub fn handle_sysinfo(stream: &mut TcpStream) {
         json.len()
     );
 
-    send_response(stream, &headers, Some(json.as_bytes()));
+    send_response(stream, &headers, Some(json.as_bytes())).await;
 }
 
 pub fn read_cgroup_metric(path: &str) -> Result<u64, io::Error> {

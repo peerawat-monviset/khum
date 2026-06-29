@@ -1,12 +1,11 @@
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 use std::process::Command;
 use std::collections::HashMap;
 use crate::state::{AppState, PromoCode};
 
 pub fn spawn_background_scraper(state: Arc<AppState>) {
-    thread::spawn(move || {
+    tokio::spawn(async move {
         println!("Background worker: Initializing scraper...");
         loop {
             println!("Background worker: Fetching/updating delivery promo codes...");
@@ -39,77 +38,85 @@ pub fn spawn_background_scraper(state: Arc<AppState>) {
 
             update_app_store_icons(&state);
 
-            thread::sleep(Duration::from_secs(600)); // Sleep 10 minutes
+            tokio::time::sleep(Duration::from_secs(600)).await; // Sleep 10 minutes
         }
     });
 }
 
 fn update_app_store_icons(state: &AppState) {
-    println!("Background worker: Querying TH App Store for app icons...");
-    let output = match Command::new("curl")
-        .args(&[
-            "-s",
-            "https://itunes.apple.com/lookup?id=647268330,1076238296,1526791835,959841453&country=th"
-        ])
-        .output() {
-            Ok(out) => out,
-            Err(e) => {
-                eprintln!("Background worker: Failed to execute curl for App Store search: {}", e);
-                return;
-            }
-        };
-
-    if !output.status.success() {
-        eprintln!("Background worker: App Store curl lookup failed");
-        return;
-    }
-
-    let json_str = match String::from_utf8(output.stdout) {
-        Ok(s) => s,
-        Err(_) => return,
-    };
-
+    println!("Background worker: Querying TH/VN App Store for app icons...");
     let mut map = HashMap::new();
 
-    // Iterate through blocks starting with wrapperType (each result is a separate block)
-    for block in json_str.split("\"wrapperType\"") {
-        let track_id = if let Some(idx) = block.find("\"trackId\":") {
-            let rest = &block[idx + 10..];
-            let end_idx = rest.find(',').unwrap_or(rest.len());
-            rest[..end_idx].trim().parse::<u64>().ok()
-        } else {
-            None
-        };
-
-        let artwork_url = if let Some(idx) = block.find("\"artworkUrl100\":\"") {
-            let rest = &block[idx + 17..];
-            let end_idx = rest.find('"').unwrap_or(rest.len());
-            Some(rest[..end_idx].replace("\\/", "/"))
-        } else if let Some(idx) = block.find("\"artworkUrl512\":\"") {
-            let rest = &block[idx + 17..];
-            let end_idx = rest.find('"').unwrap_or(rest.len());
-            Some(rest[..end_idx].replace("\\/", "/"))
-        } else {
-            None
-        };
-
-        if let (Some(tid), Some(url)) = (track_id, artwork_url) {
-            let key = match tid {
-                647268330 => "grab",
-                1076238296 => "lineman",
-                1526791835 => "robinhood",
-                959841453 => "shopee",
-                _ => continue,
-            };
-            map.insert(key.to_string(), url);
+    // 1. Query TH Store for Grab, LINE MAN, and Robinhood
+    if let Ok(output) = Command::new("curl")
+        .args(&[
+            "-s",
+            "https://itunes.apple.com/lookup?id=647268330,1076238296,1526791835&country=th"
+        ])
+        .output() {
+        if output.status.success() {
+            if let Ok(json_str) = String::from_utf8(output.stdout) {
+                parse_lookup_json(&json_str, &mut map);
+            }
         }
     }
 
-    if !map.is_empty() {
-        let mut icon_urls = state.icon_urls.write().unwrap();
-        for (key, url) in map {
-            println!("Background worker: Resolved App Store icon for [{}]: {}", key, url);
-            icon_urls.insert(key, url);
+    // 2. Query VN Store for ShopeeFood (Customer App ID: 1137866760)
+    if let Ok(output) = Command::new("curl")
+        .args(&[
+            "-s",
+            "https://itunes.apple.com/lookup?id=1137866760&country=vn"
+        ])
+        .output() {
+        if output.status.success() {
+            if let Ok(json_str) = String::from_utf8(output.stdout) {
+                parse_lookup_json(&json_str, &mut map);
+            }
         }
+    }
+
+    // Write back to AppState
+    let mut icon_urls = state.icon_urls.write().unwrap();
+    for (k, v) in map {
+        if icon_urls.get(&k) != Some(&v) {
+            println!("Background worker: Resolved App Store icon for [{}]: {}", k, v);
+            icon_urls.insert(k, v);
+        }
+    }
+}
+
+fn parse_lookup_json(json: &str, map: &mut HashMap<String, String>) {
+    let mut current_pos = 0;
+    while let Some(idx) = json[current_pos..].find("\"artworkUrl512\"") {
+        let absolute_idx = current_pos + idx;
+        let search_slice = &json[absolute_idx..];
+        if let Some(val_start) = search_slice.find(':') {
+            let val_slice = &search_slice[val_start + 1..];
+            if let Some(quote_start) = val_slice.find('"') {
+                if let Some(quote_end) = val_slice[quote_start + 1..].find('"') {
+                    let mut url = val_slice[quote_start + 1..quote_start + 1 + quote_end].to_string();
+                    url = url.replace("\\/", "/");
+                    
+                    // Replace /512x512bb.jpg suffix with /1024x1024bb.jpg for maximum quality
+                    if url.contains("512x512bb.jpg") {
+                        url = url.replace("512x512bb.jpg", "1024x1024bb.jpg");
+                    } else if url.contains("100x100bb.jpg") {
+                        url = url.replace("100x100bb.jpg", "1024x1024bb.jpg");
+                    }
+
+                    // Map specific app bundles to delivery providers
+                    if url.contains("grab") || url.contains("Grab") {
+                        map.insert("grab".to_string(), url);
+                    } else if url.contains("lineman") || url.contains("Lineman") || url.contains("bb64a022-4c96-3849-63b5-63062204057e") {
+                        map.insert("lineman".to_string(), url);
+                    } else if url.contains("robinhood") || url.contains("Robinhood") || url.contains("41064f9c-e4ed-179a-1a1f-8beddca689a8") {
+                        map.insert("robinhood".to_string(), url);
+                    } else if url.contains("shopee") || url.contains("Shopee") || url.contains("d114731d-f283-4273-762d-97d35644434c") {
+                        map.insert("shopee".to_string(), url);
+                    }
+                }
+            }
+        }
+        current_pos = absolute_idx + 15;
     }
 }

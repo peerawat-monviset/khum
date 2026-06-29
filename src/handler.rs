@@ -1,16 +1,16 @@
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 use std::sync::Arc;
 use crate::state::AppState;
 use crate::calc::handle_calculate;
 use crate::metrics::{handle_metrics, handle_sysinfo};
 
-pub fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
+pub async fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
     let mut request_bytes = Vec::new();
     let mut buffer = [0; 512];
     
     loop {
-        match stream.read(&mut buffer) {
+        match stream.read(&mut buffer).await {
             Ok(0) => break,
             Ok(n) => {
                 request_bytes.extend_from_slice(&buffer[..n]);
@@ -18,7 +18,7 @@ pub fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
                     break;
                 }
                 if request_bytes.len() >= 8192 {
-                    send_response(&mut stream, "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n", None);
+                    send_response(&mut stream, "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n", None).await;
                     return;
                 }
             }
@@ -48,7 +48,7 @@ pub fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
     let full_path = parts[1];
 
     if method != "GET" {
-        send_response(&mut stream, "HTTP/1.1 405 Method Not Allowed\r\n\r\n", None);
+        send_response(&mut stream, "HTTP/1.1 405 Method Not Allowed\r\n\r\n", None).await;
         return;
     }
 
@@ -60,33 +60,39 @@ pub fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
 
     match path {
         "/" | "/index.html" => {
-            serve_cached_file(&mut stream, &state.static_files["/index.html"], "text/html; charset=utf-8");
+            serve_cached_file(&mut stream, &state.static_files["/index.html"], "text/html; charset=utf-8").await;
         }
         "/main.css" => {
-            serve_cached_file(&mut stream, &state.static_files["/main.css"], "text/css; charset=utf-8");
+            serve_cached_file(&mut stream, &state.static_files["/main.css"], "text/css; charset=utf-8").await;
         }
         "/main.js" => {
-            serve_cached_file(&mut stream, &state.static_files["/main.js"], "application/javascript; charset=utf-8");
+            serve_cached_file(&mut stream, &state.static_files["/main.js"], "application/javascript; charset=utf-8").await;
+        }
+        "/locales/en.json" => {
+            serve_cached_file(&mut stream, &state.static_files["/locales/en.json"], "application/json; charset=utf-8").await;
+        }
+        "/locales/th.json" => {
+            serve_cached_file(&mut stream, &state.static_files["/locales/th.json"], "application/json; charset=utf-8").await;
         }
         "/api/calculate" => {
-            handle_calculate(&mut stream, query, state);
+            handle_calculate(&mut stream, query, state).await;
         }
         "/api/metrics" => {
-            handle_metrics(&mut stream, state);
+            handle_metrics(&mut stream, state).await;
         }
         "/api/sysinfo" => {
-            handle_sysinfo(&mut stream);
+            handle_sysinfo(&mut stream).await;
         }
         "/api/icon" => {
-            handle_icon(&mut stream, query, state);
+            handle_icon(&mut stream, query, state).await;
         }
         _ => {
-            send_response(&mut stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", None);
+            send_response(&mut stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", None).await;
         }
     }
 }
 
-pub fn handle_icon(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
+pub async fn handle_icon(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
     let mut provider = "";
     for param in query.split('&') {
         let mut split = param.split('=');
@@ -97,13 +103,17 @@ pub fn handle_icon(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
         }
     }
 
-    let icon_urls = state.icon_urls.read().unwrap();
-    if let Some(url) = icon_urls.get(provider) {
+    let url_opt = {
+        let icon_urls = state.icon_urls.read().unwrap();
+        icon_urls.get(provider).cloned()
+    };
+
+    if let Some(url) = url_opt {
         let headers = format!(
             "HTTP/1.1 307 Temporary Redirect\r\nLocation: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
             url
         );
-        let _ = stream.write_all(headers.as_bytes());
+        let _ = stream.write_all(headers.as_bytes()).await;
     } else {
         // Fallback default SVG colors if not resolved yet
         let fallback_url = match provider {
@@ -115,29 +125,29 @@ pub fn handle_icon(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
                 "HTTP/1.1 307 Temporary Redirect\r\nLocation: {}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                 fallback_url
             );
-            let _ = stream.write_all(headers.as_bytes());
+            let _ = stream.write_all(headers.as_bytes()).await;
         } else {
-            send_response(stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", None);
+            send_response(stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", None).await;
         }
     }
 }
 
-pub fn serve_cached_file(stream: &mut TcpStream, contents: &[u8], content_type: &str) {
+pub async fn serve_cached_file(stream: &mut TcpStream, contents: &[u8], content_type: &str) {
     let headers = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         content_type,
         contents.len()
     );
-    send_response(stream, &headers, Some(contents));
+    send_response(stream, &headers, Some(contents)).await;
 }
 
-pub fn send_response(stream: &mut TcpStream, headers: &str, body: Option<&[u8]>) {
-    if let Err(e) = stream.write_all(headers.as_bytes()) {
+pub async fn send_response(stream: &mut TcpStream, headers: &str, body: Option<&[u8]>) {
+    if let Err(e) = stream.write_all(headers.as_bytes()).await {
         eprintln!("Failed to write headers: {}", e);
         return;
     }
     if let Some(contents) = body {
-        if let Err(e) = stream.write_all(contents) {
+        if let Err(e) = stream.write_all(contents).await {
             eprintln!("Failed to write body: {}", e);
         }
     }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+/* Fonts */
 
 :root {
     --bg-dark: #0b0f19;
@@ -16,8 +16,33 @@
     --accent-hover: #4f46e5;
     --glow-color: rgba(99, 102, 241, 0.15);
     
-    font-family: 'Outfit', sans-serif;
+    --option-bg: rgba(255, 255, 255, 0.02);
+    --option-hover-bg: rgba(255, 255, 255, 0.04);
+    
+    font-family: 'Anuphan', sans-serif;
     color-scheme: dark;
+}
+
+[data-theme="light"] {
+    --bg-dark: #f3f4f6;
+    --card-bg: rgba(255, 255, 255, 0.8);
+    --border-color: rgba(0, 0, 0, 0.08);
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    
+    --accent-grab: #00b14f;
+    --accent-lineman: #06c755;
+    --accent-robinhood: #7e3f98;
+    --accent-shopee: #ee4d2d;
+    
+    --accent-primary: #4f46e5;
+    --accent-hover: #4338ca;
+    --glow-color: rgba(79, 70, 229, 0.08);
+    
+    --option-bg: rgba(0, 0, 0, 0.02);
+    --option-hover-bg: rgba(0, 0, 0, 0.04);
+    
+    color-scheme: light;
 }
 
 body {
@@ -123,17 +148,103 @@ header p {
 
 .delivery-option {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.25rem;
+    flex-direction: column;
+    padding: 1.25rem;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--option-bg);
     border: 1px solid var(--border-color);
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .delivery-option:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--option-hover-bg);
+}
+
+.option-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.option-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.provider-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.promo-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    width: fit-content;
+    border: 1px solid transparent;
+}
+
+.badge-grab {
+    background: rgba(0, 177, 79, 0.1);
+    color: var(--accent-grab);
+    border-color: rgba(0, 177, 79, 0.2);
+}
+
+.badge-lineman {
+    background: rgba(6, 199, 85, 0.1);
+    color: var(--accent-lineman);
+    border-color: rgba(6, 199, 85, 0.2);
+}
+
+.badge-robinhood {
+    background: rgba(126, 63, 152, 0.1);
+    color: var(--accent-robinhood);
+    border-color: rgba(126, 63, 152, 0.2);
+}
+
+.badge-shopee {
+    background: rgba(238, 77, 45, 0.1);
+    color: var(--accent-shopee);
+    border-color: rgba(238, 77, 45, 0.2);
+}
+
+.option-details {
+    width: 100%;
+}
+
+.formula-box {
+    background: rgba(10, 15, 26, 0.4);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+[data-theme="light"] .formula-box {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.formula-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+}
+
+.formula-code {
+    font-family: monospace;
+    color: var(--text-primary);
+    background: transparent;
+    padding: 0;
 }
 
 .delivery-option.best-deal {
@@ -163,9 +274,9 @@ header p {
 }
 
 .provider-logo {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 84px;
+    height: 84px;
+    border-radius: 24px;
     flex-shrink: 0;
 }
 
@@ -188,4 +299,96 @@ header p {
     font-size: 0.85rem;
     color: var(--text-secondary);
     text-decoration: line-through;
+}
+
+/* Header Controls & Theme/Lang Button Styles */
+.header-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-bottom: -1rem;
+    position: relative;
+    z-index: 10;
+}
+
+.control-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem;
+    border-radius: 50%;
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: 'Anuphan', sans-serif;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.control-btn:hover {
+    background: var(--option-hover-bg);
+    border-color: var(--accent-primary);
+    transform: scale(1.05);
+}
+
+.control-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+}
+
+.unit-indicator {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* Formula Vertical Receipt Styles */
+.formula-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.formula-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.formula-row.total-row {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.formula-val {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.formula-row .discount-val {
+    color: #ef4444; /* red for discount in light mode */
+}
+
+[data-theme="dark"] .formula-row .discount-val {
+    color: #f87171; /* light red for discount in dark mode */
+}
+
+.formula-divider {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 0.35rem 0;
+    width: 100%;
 }

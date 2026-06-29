@@ -30,6 +30,8 @@ impl AppState {
         static_files.insert("/index.html", fs::read("public/index.html").unwrap_or_default());
         static_files.insert("/main.css", fs::read("public/main.css").unwrap_or_default());
         static_files.insert("/main.js", fs::read("public/main.js").unwrap_or_default());
+        static_files.insert("/locales/en.json", fs::read("public/locales/en.json").unwrap_or_default());
+        static_files.insert("/locales/th.json", fs::read("public/locales/th.json").unwrap_or_default());
 
         let cpu_tracker = Mutex::new(CpuTracker {
             last_cpu_usec: crate::metrics::read_cpu_usec().unwrap_or(0),

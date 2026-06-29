@@ -4,11 +4,11 @@ mod metrics;
 mod scraper;
 mod state;
 
-use std::net::TcpListener;
 use std::sync::Arc;
-use std::thread;
+use tokio::net::TcpListener;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
     let addr = format!("0.0.0.0:{}", port);
     
@@ -18,19 +18,19 @@ fn main() {
         eprintln!("Failed to load database: {}", e);
     }
 
-    // Spawn background worker to scrape and update promo codes periodically
+    // Spawn background worker task to scrape and update promo codes periodically
     scraper::spawn_background_scraper(Arc::clone(&state));
 
-    let listener = TcpListener::bind(&addr).expect("Failed to bind port");
+    let listener = TcpListener::bind(&addr).await.expect("Failed to bind port");
     println!("Server running on http://{}", addr);
 
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
+    loop {
+        match listener.accept().await {
+            Ok((stream, _)) => {
                 let _ = stream.set_nodelay(true); // Disable Nagle's algorithm for low-latency calculations
                 let state_clone = Arc::clone(&state);
-                thread::spawn(move || {
-                    handler::handle_connection(stream, state_clone);
+                tokio::spawn(async move {
+                    handler::handle_connection(stream, state_clone).await;
                 });
             }
             Err(e) => {
