@@ -84,8 +84,11 @@ async function loadSysInfo() {
             sysinfoEl.innerHTML = `
                 Host: ${data.hostname} (${data.hypervisor}) | OS: ${data.os}<br>
                 Kernel: ${data.kernel} | Uptime: ${data.uptime}<br>
-                CPU: ${data.cpu_model} (${data.cpu_cores} Cores @ ${data.cpu_speed}) | Cache: ${data.cpu_cache}<br>
-                Host RAM: ${data.mem_total} | Load Avg: ${data.loadavg}
+                CPU: ${data.cpu_model} (${data.cpu_cores} Cores @ ${data.cpu_speed})<br>
+                Instruction Flags: <code style="color: var(--accent-primary);">${data.cpu_flags}</code><br>
+                Cache: L1-D ${data.l1_data} \| L1-I ${data.l1_inst} \| L2 ${data.l2} \| L3 ${data.l3} \| Line: ${data.cache_line}B<br>
+                Page Size: ${data.page_size}B \| NUMA Nodes: ${data.numa_nodes} \| Host RAM: ${data.mem_total}<br>
+                Load Avg: ${data.loadavg}
             `;
         }
     } catch (err) {

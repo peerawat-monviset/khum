@@ -6,6 +6,10 @@ use std::time::Instant;
 use crate::state::AppState;
 use crate::handler::send_response;
 
+unsafe extern "C" {
+    fn sysconf(name: std::os::raw::c_int) -> std::os::raw::c_long;
+}
+
 pub fn handle_metrics(stream: &mut TcpStream, state: Arc<AppState>) {
     let mem_current = read_self_rss_bytes().unwrap_or(0);
 
@@ -69,10 +73,6 @@ pub fn handle_sysinfo(stream: &mut TcpStream) {
         .map(|s| s.split(':').nth(1).unwrap_or("").trim().to_string() + " MHz")
         .unwrap_or_else(|_| "Unknown Speed".to_string());
 
-    let cpu_cache = read_line_matching("/proc/cpuinfo", "cache size")
-        .map(|s| s.split(':').nth(1).unwrap_or("").trim().to_string())
-        .unwrap_or_else(|_| "Unknown Cache".to_string());
-
     let cpu_cores = fs::read_to_string("/proc/cpuinfo")
         .map(|s| s.lines().filter(|line| line.starts_with("processor")).count())
         .unwrap_or(1);
@@ -98,13 +98,29 @@ pub fn handle_sysinfo(stream: &mut TcpStream) {
         .map(|s| s.split_whitespace().take(3).collect::<Vec<&str>>().join(" "))
         .unwrap_or_else(|_| "Unknown".to_string());
 
+    // Deep Hardware Topology Specs
+    let l1_data = read_sys_file("/sys/devices/system/cpu/cpu0/cache/index0/size");
+    let l1_inst = read_sys_file("/sys/devices/system/cpu/cpu0/cache/index1/size");
+    let l2 = read_sys_file("/sys/devices/system/cpu/cpu0/cache/index2/size");
+    let l3 = read_sys_file("/sys/devices/system/cpu/cpu0/cache/index3/size");
+    let cache_line = read_sys_file("/sys/devices/system/cpu/cpu0/cache/index0/coherency_line_size")
+        .parse::<u32>()
+        .unwrap_or(64);
+    
+    let numa_nodes = get_numa_nodes();
+    let page_size = unsafe { sysconf(30) }; // _SC_PAGESIZE is 30 on Linux
+
     let json = format!(
         "{{\"os\":\"{}\",\"kernel\":\"{}\",\"hostname\":\"{}\",\"hypervisor\":\"{}\",\
-          \"cpu_model\":\"{}\",\"cpu_speed\":\"{}\",\"cpu_cache\":\"{}\",\"cpu_cores\":{},\
-          \"mem_total\":\"{}\",\"uptime\":\"{}\",\"loadavg\":\"{}\"}}",
+          \"cpu_model\":\"{}\",\"cpu_speed\":\"{}\",\"cpu_cores\":{},\
+          \"cpu_flags\":\"{}\",\"l1_data\":\"{}\",\"l1_inst\":\"{}\",\
+          \"l2\":\"{}\",\"l3\":\"{}\",\"cache_line\":{},\"numa_nodes\":{},\
+          \"page_size\":{},\"mem_total\":\"{}\",\"uptime\":\"{}\",\"loadavg\":\"{}\"}}",
         os, kernel, hostname, hypervisor,
-        cpu_model, cpu_speed, cpu_cache, cpu_cores,
-        mem_total, uptime, loadavg
+        cpu_model, cpu_speed, cpu_cores,
+        get_simd_flags(), l1_data, l1_inst,
+        l2, l3, cache_line, numa_nodes,
+        page_size, mem_total, uptime, loadavg
     );
 
     let headers = format!(
@@ -168,4 +184,43 @@ fn read_self_rss_bytes() -> Result<u64, io::Error> {
         }
     }
     Err(io::Error::new(io::ErrorKind::NotFound, "VmRSS not found"))
+}
+
+fn read_sys_file(path: &str) -> String {
+    fs::read_to_string(path)
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "N/A".to_string())
+}
+
+fn get_simd_flags() -> String {
+    let mut flags = Vec::new();
+    if let Ok(content) = fs::read_to_string("/proc/cpuinfo") {
+        for line in content.lines() {
+            if line.starts_with("flags") {
+                let parts = line.split(':').nth(1).unwrap_or("").split_whitespace();
+                let targets = ["sse", "sse2", "sse3", "ssse3", "sse4_1", "sse4_2", "avx", "avx2", "avx512f", "aes", "sha_ni", "hypervisor"];
+                for part in parts {
+                    if targets.contains(&part) {
+                        flags.push(part.to_string());
+                    }
+                }
+                break;
+            }
+        }
+    }
+    flags.join(" ")
+}
+
+fn get_numa_nodes() -> u32 {
+    let mut count = 0;
+    if let Ok(entries) = fs::read_dir("/sys/devices/system/node") {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                if entry.file_name().to_string_lossy().starts_with("node") {
+                    count += 1;
+                }
+            }
+        }
+    }
+    if count == 0 { 1 } else { count }
 }

@@ -162,16 +162,12 @@ header p {
     gap: 0.75rem;
 }
 
-.provider-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+.provider-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    flex-shrink: 0;
 }
-
-.provider-dot.grab { background-color: var(--accent-grab); }
-.provider-dot.lineman { background-color: var(--accent-lineman); }
-.provider-dot.robinhood { background-color: var(--accent-robinhood); }
-.provider-dot.shopee { background-color: var(--accent-shopee); }
 
 .provider-name {
     font-weight: 600;
