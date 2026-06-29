@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Khum - Food Delivery Optimizer</title>
+    <title>Khum</title>
     <link rel="stylesheet" href="/main.css">
 </head>
 <body>
@@ -29,10 +29,12 @@
             <!-- Grab Option -->
             <div class="delivery-option" id="opt-grab">
                 <div class="provider-info">
-                    <!-- Grab Logo: Styled parallel green strokes -->
+                    <!-- Grab App Store Icon: White ribbon-paths on Grab Green background -->
                     <svg class="provider-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15,50 C15,25 35,15 50,15 C65,15 85,25 85,50 M30,50 C30,35 40,28 50,28 C60,28 70,35 70,50" stroke="#00b14f" stroke-width="10" stroke-linecap="round"/>
-                        <path d="M15,50 C15,75 35,85 50,85 C65,85 85,75 85,50 M30,50 C30,65 40,72 50,72 C60,72 70,65 70,50" stroke="#00b14f" stroke-width="10" stroke-linecap="round"/>
+                        <rect width="100" height="100" rx="22" fill="#00b14f"/>
+                        <path d="M 22 42 C 22 30, 36 22, 50 22 C 64 22, 78 30, 78 42 M 35 42 C 35 34, 42 30, 50 30 C 58 30, 65 34, 65 42" stroke="white" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+                        <path d="M 22 58 C 22 70, 36 78, 50 78 C 64 78, 78 70, 78 58 M 35 58 C 35 66, 42 70, 50 70 C 58 70, 65 66, 65 58" stroke="white" stroke-width="6.5" stroke-linecap="round" fill="none"/>
+                        <path d="M 22 42 L 22 58 M 35 42 L 35 58 M 78 42 L 78 58 M 65 42 L 65 58" stroke="white" stroke-width="6.5" stroke-linecap="round" fill="none"/>
                     </svg>
                     <span class="provider-name">GrabFood</span>
                 </div>
@@ -45,11 +47,12 @@
             <!-- LINE MAN Option -->
             <div class="delivery-option" id="opt-lineman">
                 <div class="provider-info">
-                    <!-- LINE MAN Logo: Green delivery check badge -->
+                    <!-- LINE MAN App Store Icon: White messenger check-wings on Green background -->
                     <svg class="provider-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100" height="100" rx="24" fill="#06c755"/>
-                        <path d="M25,50 L42,67 L75,33" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M30,26 H70" stroke="white" stroke-width="8" stroke-linecap="round"/>
+                        <rect width="100" height="100" rx="22" fill="#06c755"/>
+                        <path d="M 28 52 L 44 68 L 76 34" stroke="white" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M 52 34 L 76 34 L 76 58" stroke="white" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M 20 40 L 32 40 M 16 48 L 24 48 M 20 56 L 28 56" stroke="white" stroke-width="6" stroke-linecap="round"/>
                     </svg>
                     <span class="provider-name">LINE MAN</span>
                 </div>
@@ -62,11 +65,14 @@
             <!-- Robinhood Option -->
             <div class="delivery-option" id="opt-robinhood">
                 <div class="provider-info">
-                    <!-- Robinhood Logo: SCB Purple and gold circles -->
+                    <!-- Robinhood App Store Icon: Yellow rotating pinwheel on Purple background -->
                     <svg class="provider-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100" height="100" rx="24" fill="#7e3f98"/>
-                        <circle cx="50" cy="50" r="24" stroke="#f2ae1b" stroke-width="9" fill="none"/>
-                        <circle cx="50" cy="50" r="8" fill="#f2ae1b"/>
+                        <rect width="100" height="100" rx="22" fill="#5f259f"/>
+                        <circle cx="50" cy="50" r="10" fill="#f2ae1b"/>
+                        <path d="M 50 18 C 50 18, 68 28, 68 42 C 68 50, 58 50, 50 50 Z" fill="#f2ae1b"/>
+                        <path d="M 82 50 C 82 50, 72 68, 58 68 C 50 68, 50 58, 50 50 Z" fill="#f2ae1b"/>
+                        <path d="M 50 82 C 50 82, 32 72, 32 58 C 32 50, 42 50, 50 50 Z" fill="#f2ae1b"/>
+                        <path d="M 18 50 C 18 50, 28 32, 42 32 C 50 32, 50 42, 50 50 Z" fill="#f2ae1b"/>
                     </svg>
                     <span class="provider-name">Robinhood</span>
                 </div>
@@ -79,12 +85,14 @@
             <!-- ShopeeFood Option -->
             <div class="delivery-option" id="opt-shopee">
                 <div class="provider-info">
-                    <!-- ShopeeFood Logo: Shopee Orange and bag shape -->
+                    <!-- ShopeeFood App Store Icon: White plate with Fork/Spoon on Shopee Orange background -->
                     <svg class="provider-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="100" height="100" rx="24" fill="#ee4d2d"/>
-                        <path d="M30,42 H70 V74 C70,77 68,79 65,79 H35 C32,79 30,77 30,74 Z" fill="white"/>
-                        <path d="M42,42 C42,32 58,32 58,42" stroke="white" stroke-width="7" fill="none"/>
-                        <path d="M43,51 H57 C57,51 43,56 43,62 H57" stroke="#ee4d2d" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <rect width="100" height="100" rx="22" fill="#ee4d2d"/>
+                        <circle cx="50" cy="50" r="32" fill="white"/>
+                        <path d="M 40 32 L 40 46 M 36 32 V 40 C 36 43, 44 43, 44 40 V 32" stroke="#ee4d2d" stroke-width="4.5" stroke-linecap="round"/>
+                        <path d="M 40 46 V 68" stroke="#ee4d2d" stroke-width="5" stroke-linecap="round"/>
+                        <path d="M 58 32 C 53 32, 53 48, 58 48 C 63 48, 63 32, 58 32 Z" fill="#ee4d2d"/>
+                        <path d="M 58 48 V 68" stroke="#ee4d2d" stroke-width="5" stroke-linecap="round"/>
                     </svg>
                     <span class="provider-name">ShopeeFood</span>
                 </div>
