@@ -10,5 +10,5 @@ edition = "2024"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+panic = "immediate-abort"
 strip = true
