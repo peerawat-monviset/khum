@@ -16,13 +16,21 @@ struct PromoCode {
 struct AppState {
     cache: RwLock<HashMap<String, PromoCode>>,
     db_path: &'static str,
+    static_files: HashMap<&'static str, Vec<u8>>,
 }
 
 impl AppState {
     fn new(db_path: &'static str) -> Self {
+        let mut static_files = HashMap::new();
+        // Cache static files in memory on startup to completely bypass disk I/O on client requests
+        static_files.insert("/index.html", fs::read("public/index.html").unwrap_or_default());
+        static_files.insert("/main.css", fs::read("public/main.css").unwrap_or_default());
+        static_files.insert("/main.js", fs::read("public/main.js").unwrap_or_default());
+
         AppState {
             cache: RwLock::new(HashMap::new()),
             db_path,
+            static_files,
         }
     }
 
@@ -75,8 +83,9 @@ fn spawn_background_scraper(state: Arc<AppState>) {
             
             let mock_promos = vec![
                 PromoCode { code: "GRAB60".to_string(), service: "grab".to_string(), discount: 60.0 },
-                PromoCode { code: "PANDA50".to_string(), service: "panda".to_string(), discount: 50.0 },
                 PromoCode { code: "LINEMANDEL".to_string(), service: "lineman".to_string(), discount: 30.0 },
+                PromoCode { code: "RBH40".to_string(), service: "robinhood".to_string(), discount: 40.0 },
+                PromoCode { code: "SHOPEE50".to_string(), service: "shopee".to_string(), discount: 50.0 },
             ];
 
             let mut to_add = Vec::new();
@@ -133,13 +142,32 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
-    let mut buffer = [0; 1024];
-    if let Err(e) = stream.read(&mut buffer) {
-        eprintln!("Failed to read stream: {}", e);
-        return;
+    let mut request_bytes = Vec::new();
+    let mut buffer = [0; 512];
+    
+    // Dynamically read request headers from TCP socket until double CRLF is found
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                request_bytes.extend_from_slice(&buffer[..n]);
+                if request_bytes.windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+                // Safety guard: Limit maximum request header size to 8KB
+                if request_bytes.len() >= 8192 {
+                    send_response(&mut stream, "HTTP/1.1 431 Request Header Fields Too Large\r\n\r\n", None);
+                    return;
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to read stream: {}", e);
+                return;
+            }
+        }
     }
 
-    let request_str = String::from_utf8_lossy(&buffer);
+    let request_str = String::from_utf8_lossy(&request_bytes);
     let mut lines = request_str.lines();
     let request_line = match lines.next() {
         Some(line) => line,
@@ -155,7 +183,7 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
     let full_path = parts[1];
 
     if method != "GET" {
-        send_response(&mut stream, "HTTP/1.1 4505 Method Not Allowed\r\n\r\n", None);
+        send_response(&mut stream, "HTTP/1.1 405 Method Not Allowed\r\n\r\n", None);
         return;
     }
 
@@ -167,16 +195,19 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
 
     match path {
         "/" | "/index.html" => {
-            serve_file(&mut stream, "public/index.html", "text/html; charset=utf-8");
+            serve_cached_file(&mut stream, &state.static_files["/index.html"], "text/html; charset=utf-8");
         }
         "/main.css" => {
-            serve_file(&mut stream, "public/main.css", "text/css; charset=utf-8");
+            serve_cached_file(&mut stream, &state.static_files["/main.css"], "text/css; charset=utf-8");
         }
         "/main.js" => {
-            serve_file(&mut stream, "public/main.js", "application/javascript; charset=utf-8");
+            serve_cached_file(&mut stream, &state.static_files["/main.js"], "application/javascript; charset=utf-8");
         }
         "/api/calculate" => {
             handle_calculate(&mut stream, query, state);
+        }
+        "/api/metrics" => {
+            handle_metrics(&mut stream);
         }
         _ => {
             send_response(&mut stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", None);
@@ -184,20 +215,13 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
     }
 }
 
-fn serve_file(stream: &mut TcpStream, file_path: &str, content_type: &str) {
-    match fs::read(file_path) {
-        Ok(contents) => {
-            let headers = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                content_type,
-                contents.len()
-            );
-            send_response(stream, &headers, Some(&contents));
-        }
-        Err(_) => {
-            send_response(stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", None);
-        }
-    }
+fn serve_cached_file(stream: &mut TcpStream, contents: &[u8], content_type: &str) {
+    let headers = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        content_type,
+        contents.len()
+    );
+    send_response(stream, &headers, Some(contents));
 }
 
 fn handle_calculate(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
@@ -235,42 +259,64 @@ fn handle_calculate(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
         .fold(0.0, f64::max);
     let grab_final = (basket + grab_del - grab_disc).max(0.0);
 
-    // foodpanda
-    let panda_del = 15.0 + (distance * 5.0);
-    let panda_disc = promos.iter()
-        .filter(|p| p.service == "panda")
-        .map(|p| {
-            if p.code == "PANDA50" && basket >= 250.0 { 50.0 } else { p.discount }
-        })
-        .fold(0.0, f64::max);
-    let panda_final = (basket + panda_del - panda_disc).max(0.0);
-
     // LINE MAN
     let lineman_del = distance * 12.0;
     let lineman_disc = promos.iter()
         .filter(|p| p.service == "lineman")
-        .map(|p| p.discount)
+        .map(|p| {
+            if p.code == "LINEMANDEL" { 30.0 } else { p.discount }
+        })
         .fold(0.0, f64::max);
     let lineman_final = (basket + (lineman_del - lineman_disc).max(0.0)).max(0.0);
 
-    let best = if grab_final <= panda_final && grab_final <= lineman_final {
-        "grab"
-    } else if panda_final <= grab_final && panda_final <= lineman_final {
-        "panda"
-    } else {
-        "lineman"
-    };
+    // Robinhood
+    let robinhood_del = 20.0 + (distance * 4.0);
+    let robinhood_disc = promos.iter()
+        .filter(|p| p.service == "robinhood")
+        .map(|p| {
+            if p.code == "RBH40" && basket >= 180.0 { 40.0 } else { p.discount }
+        })
+        .fold(0.0, f64::max);
+    let robinhood_final = (basket + robinhood_del - robinhood_disc).max(0.0);
+
+    // ShopeeFood
+    let shopee_del = 10.0 + (distance * 6.0);
+    let shopee_disc = promos.iter()
+        .filter(|p| p.service == "shopee")
+        .map(|p| {
+            if p.code == "SHOPEE50" && basket >= 220.0 { 50.0 } else { p.discount }
+        })
+        .fold(0.0, f64::max);
+    let shopee_final = (basket + shopee_del - shopee_disc).max(0.0);
+
+    // Determine Best
+    let mut best = "grab";
+    let mut min_val = grab_final;
+
+    if lineman_final < min_val {
+        best = "lineman";
+        min_val = lineman_final;
+    }
+    if robinhood_final < min_val {
+        best = "robinhood";
+        min_val = robinhood_final;
+    }
+    if shopee_final < min_val {
+        best = "shopee";
+    }
 
     let json = format!(
         "{{\"best\":\"{}\",\"providers\":[\
             {{\"key\":\"grab\",\"name\":\"GrabFood\",\"final\":{},\"original\":{}}},\
-            {{\"key\":\"panda\",\"name\":\"foodpanda\",\"final\":{},\"original\":{}}},\
-            {{\"key\":\"lineman\",\"name\":\"LINE MAN\",\"final\":{},\"original\":{}}}\
+            {{\"key\":\"lineman\",\"name\":\"LINE MAN\",\"final\":{},\"original\":{}}},\
+            {{\"key\":\"robinhood\",\"name\":\"Robinhood\",\"final\":{},\"original\":{}}},\
+            {{\"key\":\"shopee\",\"name\":\"ShopeeFood\",\"final\":{},\"original\":{}}}\
         ]}}",
         best,
         grab_final, basket + grab_del,
-        panda_final, basket + panda_del,
-        lineman_final, basket + (distance * 12.0)
+        lineman_final, basket + lineman_del,
+        robinhood_final, basket + robinhood_del,
+        shopee_final, basket + shopee_del
     );
 
     let headers = format!(
@@ -291,4 +337,33 @@ fn send_response(stream: &mut TcpStream, headers: &str, body: Option<&[u8]>) {
             eprintln!("Failed to write body: {}", e);
         }
     }
+}
+
+fn handle_metrics(stream: &mut TcpStream) {
+    let mem_current = read_cgroup_metric("/sys/fs/cgroup/memory.current")
+        .or_else(|_| read_cgroup_metric("/sys/fs/cgroup/memory/memory.usage_in_bytes"))
+        .unwrap_or(0);
+
+    let mem_limit = read_cgroup_metric("/sys/fs/cgroup/memory.max")
+        .or_else(|_| read_cgroup_metric("/sys/fs/cgroup/memory/memory.limit_in_bytes"))
+        .unwrap_or(0);
+
+    let json = format!(
+        "{{\"mem_current_mb\":{:.2},\"mem_limit_mb\":{:.2}}}",
+        (mem_current as f64) / 1024.0 / 1024.0,
+        (mem_limit as f64) / 1024.0 / 1024.0
+    );
+
+    let headers = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        json.len()
+    );
+
+    send_response(stream, &headers, Some(json.as_bytes()));
+}
+
+fn read_cgroup_metric(path: &str) -> Result<u64, io::Error> {
+    let content = fs::read_to_string(path)?;
+    let val = content.trim().parse::<u64>().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    Ok(val)
 }

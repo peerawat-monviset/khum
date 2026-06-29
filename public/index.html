@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Khum</title>
+    <title>Khum - Food Delivery Optimizer</title>
     <link rel="stylesheet" href="/main.css">
 </head>
 <body>
@@ -25,9 +25,58 @@
             </div>
         </div>
 
-        <div class="comparison-list" id="comparison-list">
-            <!-- Delivery options will be dynamically injected here by main.js -->
+        <div class="comparison-list">
+            <!-- Grab Option -->
+            <div class="delivery-option" id="opt-grab">
+                <div class="provider-info">
+                    <div class="provider-dot grab"></div>
+                    <span class="provider-name">GrabFood</span>
+                </div>
+                <div class="price-details">
+                    <div class="final-price" id="price-grab-final">0.0 THB</div>
+                    <div class="original-price" id="price-grab-original">0.0 THB</div>
+                </div>
+            </div>
+
+            <!-- LINE MAN Option -->
+            <div class="delivery-option" id="opt-lineman">
+                <div class="provider-info">
+                    <div class="provider-dot lineman"></div>
+                    <span class="provider-name">LINE MAN</span>
+                </div>
+                <div class="price-details">
+                    <div class="final-price" id="price-lineman-final">0.0 THB</div>
+                    <div class="original-price" id="price-lineman-original">0.0 THB</div>
+                </div>
+            </div>
+
+            <!-- Robinhood Option -->
+            <div class="delivery-option" id="opt-robinhood">
+                <div class="provider-info">
+                    <div class="provider-dot robinhood"></div>
+                    <span class="provider-name">Robinhood</span>
+                </div>
+                <div class="price-details">
+                    <div class="final-price" id="price-robinhood-final">0.0 THB</div>
+                    <div class="original-price" id="price-robinhood-original">0.0 THB</div>
+                </div>
+            </div>
+
+            <!-- ShopeeFood Option -->
+            <div class="delivery-option" id="opt-shopee">
+                <div class="provider-info">
+                    <div class="provider-dot shopee"></div>
+                    <span class="provider-name">ShopeeFood</span>
+                </div>
+                <div class="price-details">
+                    <div class="final-price" id="price-shopee-final">0.0 THB</div>
+                    <div class="original-price" id="price-shopee-original">0.0 THB</div>
+                </div>
+            </div>
         </div>
+        <footer style="margin-top: 3rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary); opacity: 0.7;">
+            <p>Server Memory Usage: <span id="server-memory">0.0 MB</span></p>
+        </footer>
     </div>
     <script src="/main.js"></script>
 </body>

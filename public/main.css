@@ -8,8 +8,9 @@
     --text-secondary: #9ca3af;
     
     --accent-grab: #00b14f;
-    --accent-panda: #d0011b;
     --accent-lineman: #06c755;
+    --accent-robinhood: #7e3f98;
+    --accent-shopee: #ee4d2d;
     
     --accent-primary: #6366f1;
     --accent-hover: #4f46e5;
@@ -30,7 +31,7 @@ body {
     align-items: flex-start;
     background-image: 
         radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(6, 199, 85, 0.05) 0px, transparent 50%);
+        radial-gradient(at 100% 100%, rgba(110, 51, 163, 0.05) 0px, transparent 50%);
     background-attachment: fixed;
 }
 
@@ -168,8 +169,9 @@ header p {
 }
 
 .provider-dot.grab { background-color: var(--accent-grab); }
-.provider-dot.panda { background-color: var(--accent-panda); }
 .provider-dot.lineman { background-color: var(--accent-lineman); }
+.provider-dot.robinhood { background-color: var(--accent-robinhood); }
+.provider-dot.shopee { background-color: var(--accent-shopee); }
 
 .provider-name {
     font-weight: 600;
@@ -178,7 +180,7 @@ header p {
 
 .price-details {
     text-align: right;
-    margin-right: 1.5rem; /* Space for the BEST DEAL tag if active */
+    margin-right: 1.5rem;
 }
 
 .final-price {
