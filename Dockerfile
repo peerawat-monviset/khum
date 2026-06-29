@@ -4,8 +4,8 @@ FROM rust:slim AS builder
 WORKDIR /app
 COPY . .
 
-# Compile release binary
-RUN cargo build --release
+# Compile release binary with host-specific CPU instructions
+RUN RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 # Runner stage
 FROM debian:bookworm-slim AS runner

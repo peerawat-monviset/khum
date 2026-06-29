@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug)]
 struct PromoCode {
@@ -13,24 +13,35 @@ struct PromoCode {
     discount: f64,
 }
 
+struct CpuTracker {
+    last_cpu_usec: u64,
+    last_instant: Instant,
+}
+
 struct AppState {
     cache: RwLock<HashMap<String, PromoCode>>,
     db_path: &'static str,
     static_files: HashMap<&'static str, Vec<u8>>,
+    cpu_tracker: Mutex<CpuTracker>,
 }
 
 impl AppState {
     fn new(db_path: &'static str) -> Self {
         let mut static_files = HashMap::new();
-        // Cache static files in memory on startup to completely bypass disk I/O on client requests
         static_files.insert("/index.html", fs::read("public/index.html").unwrap_or_default());
         static_files.insert("/main.css", fs::read("public/main.css").unwrap_or_default());
         static_files.insert("/main.js", fs::read("public/main.js").unwrap_or_default());
+
+        let cpu_tracker = Mutex::new(CpuTracker {
+            last_cpu_usec: read_cpu_usec().unwrap_or(0),
+            last_instant: Instant::now(),
+        });
 
         AppState {
             cache: RwLock::new(HashMap::new()),
             db_path,
             static_files,
+            cpu_tracker,
         }
     }
 
@@ -129,6 +140,7 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
+                let _ = stream.set_nodelay(true);
                 let state_clone = Arc::clone(&state);
                 thread::spawn(move || {
                     handle_connection(stream, state_clone);
@@ -167,7 +179,10 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
         }
     }
 
-    let request_str = String::from_utf8_lossy(&request_bytes);
+    let request_str = match std::str::from_utf8(&request_bytes) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
     let mut lines = request_str.lines();
     let request_line = match lines.next() {
         Some(line) => line,
@@ -207,7 +222,7 @@ fn handle_connection(mut stream: TcpStream, state: Arc<AppState>) {
             handle_calculate(&mut stream, query, state);
         }
         "/api/metrics" => {
-            handle_metrics(&mut stream);
+            handle_metrics(&mut stream, state);
         }
         _ => {
             send_response(&mut stream, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n", None);
@@ -229,17 +244,17 @@ fn handle_calculate(stream: &mut TcpStream, query: &str, state: Arc<AppState>) {
     let mut distance: f64 = 3.5;
 
     for param in query.split('&') {
-        let kv: Vec<&str> = param.split('=').collect();
-        if kv.len() == 2 {
-            match kv[0] {
+        let mut split = param.split('=');
+        if let (Some(key), Some(val)) = (split.next(), split.next()) {
+            match key {
                 "basket" => {
-                    if let Ok(val) = kv[1].parse::<f64>() {
-                        basket = val;
+                    if let Ok(v) = val.parse::<f64>() {
+                        basket = v;
                     }
                 }
                 "distance" => {
-                    if let Ok(val) = kv[1].parse::<f64>() {
-                        distance = val;
+                    if let Ok(v) = val.parse::<f64>() {
+                        distance = v;
                     }
                 }
                 _ => {}
@@ -339,7 +354,7 @@ fn send_response(stream: &mut TcpStream, headers: &str, body: Option<&[u8]>) {
     }
 }
 
-fn handle_metrics(stream: &mut TcpStream) {
+fn handle_metrics(stream: &mut TcpStream, state: Arc<AppState>) {
     let mem_current = read_cgroup_metric("/sys/fs/cgroup/memory.current")
         .or_else(|_| read_cgroup_metric("/sys/fs/cgroup/memory/memory.usage_in_bytes"))
         .unwrap_or(0);
@@ -348,10 +363,26 @@ fn handle_metrics(stream: &mut TcpStream) {
         .or_else(|_| read_cgroup_metric("/sys/fs/cgroup/memory/memory.limit_in_bytes"))
         .unwrap_or(0);
 
+    let mut cpu_pct = 0.0;
+    if let Ok(current_cpu_usec) = read_cpu_usec() {
+        let mut tracker = state.cpu_tracker.lock().unwrap();
+        let elapsed_wall = tracker.last_instant.elapsed();
+        let elapsed_wall_usec = elapsed_wall.as_micros() as u64;
+
+        if elapsed_wall_usec > 0 {
+            let elapsed_cpu_usec = current_cpu_usec.saturating_sub(tracker.last_cpu_usec);
+            cpu_pct = (elapsed_cpu_usec as f64 / elapsed_wall_usec as f64) * 100.0;
+        }
+
+        tracker.last_cpu_usec = current_cpu_usec;
+        tracker.last_instant = Instant::now();
+    }
+
     let json = format!(
-        "{{\"mem_current_mb\":{:.2},\"mem_limit_mb\":{:.2}}}",
+        "{{\"mem_current_mb\":{:.2},\"mem_limit_mb\":{:.2},\"cpu_percent\":{:.2}}}",
         (mem_current as f64) / 1024.0 / 1024.0,
-        (mem_limit as f64) / 1024.0 / 1024.0
+        (mem_limit as f64) / 1024.0 / 1024.0,
+        cpu_pct
     );
 
     let headers = format!(
@@ -366,4 +397,23 @@ fn read_cgroup_metric(path: &str) -> Result<u64, io::Error> {
     let content = fs::read_to_string(path)?;
     let val = content.trim().parse::<u64>().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
     Ok(val)
+}
+
+fn read_cpu_usec() -> Result<u64, io::Error> {
+    if let Ok(content) = fs::read_to_string("/sys/fs/cgroup/cpu.stat") {
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() == 2 && parts[0] == "usage_usec" {
+                if let Ok(val) = parts[1].parse::<u64>() {
+                    return Ok(val);
+                }
+            }
+        }
+    }
+    if let Ok(content) = fs::read_to_string("/sys/fs/cgroup/cpuacct/cpuacct.usage") {
+        if let Ok(ns) = content.trim().parse::<u64>() {
+            return Ok(ns / 1000);
+        }
+    }
+    Err(io::Error::new(io::ErrorKind::NotFound, "CPU cgroup files not found"))
 }

@@ -5,3 +5,9 @@ edition = "2024"
 
 [dependencies]
 # Zero dependencies. Standard library only.
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = 3

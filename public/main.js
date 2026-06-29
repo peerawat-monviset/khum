@@ -59,6 +59,7 @@ async function updateComparison() {
 }
 
 const memoryEl = document.getElementById('server-memory');
+const cpuEl = document.getElementById('server-cpu');
 
 async function updateMetrics() {
     try {
@@ -66,6 +67,7 @@ async function updateMetrics() {
         if (response.ok) {
             const data = await response.json();
             memoryEl.textContent = `${data.mem_current_mb.toFixed(2)} MB / ${data.mem_limit_mb.toFixed(0)} MB`;
+            cpuEl.textContent = `${data.cpu_percent.toFixed(1)}%`;
         }
     } catch (err) {
         console.error("Failed to fetch server metrics:", err);
