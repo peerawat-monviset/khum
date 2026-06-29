@@ -2,7 +2,9 @@
 rustflags = [
     "-C", "target-cpu=native",
     "-C", "llvm-args=-unroll-threshold=400",
-    "-C", "llvm-args=-fp-contract=fast"
+    "-C", "llvm-args=-fp-contract=fast",
+    "-Z", "unstable-options",
+    "-C", "panic=immediate-abort"
 ]
 
 [unstable]
