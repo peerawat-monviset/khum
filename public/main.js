@@ -81,7 +81,12 @@ async function loadSysInfo() {
         const response = await fetch('/api/sysinfo');
         if (response.ok) {
             const data = await response.json();
-            sysinfoEl.innerHTML = `VM: ${data.os} (${data.kernel})<br>Hardware: ${data.cpu_model} (${data.cpu_cores} Cores) | Total Host RAM: ${data.mem_total}`;
+            sysinfoEl.innerHTML = `
+                Host: ${data.hostname} (${data.hypervisor}) | OS: ${data.os}<br>
+                Kernel: ${data.kernel} | Uptime: ${data.uptime}<br>
+                CPU: ${data.cpu_model} (${data.cpu_cores} Cores @ ${data.cpu_speed}) | Cache: ${data.cpu_cache}<br>
+                Host RAM: ${data.mem_total} | Load Avg: ${data.loadavg}
+            `;
         }
     } catch (err) {
         console.error("Failed to load VM info:", err);

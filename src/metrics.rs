@@ -7,9 +7,7 @@ use crate::state::AppState;
 use crate::handler::send_response;
 
 pub fn handle_metrics(stream: &mut TcpStream, state: Arc<AppState>) {
-    let mem_current = read_cgroup_metric("/sys/fs/cgroup/memory.current")
-        .or_else(|_| read_cgroup_metric("/sys/fs/cgroup/memory/memory.usage_in_bytes"))
-        .unwrap_or(0);
+    let mem_current = read_self_rss_bytes().unwrap_or(0);
 
     let mem_limit = read_cgroup_metric("/sys/fs/cgroup/memory.max")
         .or_else(|_| read_cgroup_metric("/sys/fs/cgroup/memory/memory.limit_in_bytes"))
@@ -54,9 +52,26 @@ pub fn handle_sysinfo(stream: &mut TcpStream) {
         .map(|s| s.split_whitespace().take(3).collect::<Vec<&str>>().join(" "))
         .unwrap_or_else(|_| "Unknown Kernel".to_string());
 
+    let hostname = fs::read_to_string("/proc/sys/kernel/hostname")
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|_| "Unknown Host".to_string());
+
+    let hypervisor = fs::read_to_string("/sys/hypervisor/type")
+        .map(|s| s.trim().to_string())
+        .or_else(|_| fs::read_to_string("/sys/devices/virtual/dmi/id/sys_vendor").map(|s| s.trim().to_string()))
+        .unwrap_or_else(|_| "KVM/Hypervisor".to_string());
+
     let cpu_model = read_line_matching("/proc/cpuinfo", "model name")
         .map(|s| s.split(':').nth(1).unwrap_or("").trim().to_string())
         .unwrap_or_else(|_| "Unknown CPU".to_string());
+
+    let cpu_speed = read_line_matching("/proc/cpuinfo", "cpu MHz")
+        .map(|s| s.split(':').nth(1).unwrap_or("").trim().to_string() + " MHz")
+        .unwrap_or_else(|_| "Unknown Speed".to_string());
+
+    let cpu_cache = read_line_matching("/proc/cpuinfo", "cache size")
+        .map(|s| s.split(':').nth(1).unwrap_or("").trim().to_string())
+        .unwrap_or_else(|_| "Unknown Cache".to_string());
 
     let cpu_cores = fs::read_to_string("/proc/cpuinfo")
         .map(|s| s.lines().filter(|line| line.starts_with("processor")).count())
@@ -66,9 +81,30 @@ pub fn handle_sysinfo(stream: &mut TcpStream) {
         .map(|s| s.split_whitespace().nth(1).unwrap_or("").to_string() + " KB")
         .unwrap_or_else(|_| "Unknown Mem".to_string());
 
+    let uptime = fs::read_to_string("/proc/uptime")
+        .map(|s| {
+            if let Some(sec_str) = s.split_whitespace().next() {
+                if let Ok(sec) = sec_str.parse::<f64>() {
+                    let h = (sec / 3600.0) as u32;
+                    let m = ((sec % 3600.0) / 60.0) as u32;
+                    return format!("{}h {}m", h, m);
+                }
+            }
+            "Unknown".to_string()
+        })
+        .unwrap_or_else(|_| "Unknown".to_string());
+
+    let loadavg = fs::read_to_string("/proc/loadavg")
+        .map(|s| s.split_whitespace().take(3).collect::<Vec<&str>>().join(" "))
+        .unwrap_or_else(|_| "Unknown".to_string());
+
     let json = format!(
-        "{{\"os\":\"{}\",\"kernel\":\"{}\",\"cpu_model\":\"{}\",\"cpu_cores\":{},\"mem_total\":\"{}\"}}",
-        os, kernel, cpu_model, cpu_cores, mem_total
+        "{{\"os\":\"{}\",\"kernel\":\"{}\",\"hostname\":\"{}\",\"hypervisor\":\"{}\",\
+          \"cpu_model\":\"{}\",\"cpu_speed\":\"{}\",\"cpu_cache\":\"{}\",\"cpu_cores\":{},\
+          \"mem_total\":\"{}\",\"uptime\":\"{}\",\"loadavg\":\"{}\"}}",
+        os, kernel, hostname, hypervisor,
+        cpu_model, cpu_speed, cpu_cache, cpu_cores,
+        mem_total, uptime, loadavg
     );
 
     let headers = format!(
@@ -114,4 +150,22 @@ fn read_line_matching(path: &str, prefix: &str) -> Result<String, io::Error> {
         }
     }
     Err(io::Error::new(io::ErrorKind::NotFound, "Prefix not found"))
+}
+
+fn read_self_rss_bytes() -> Result<u64, io::Error> {
+    let file = fs::File::open("/proc/self/status")?;
+    let reader = BufReader::new(file);
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with("VmRSS:") {
+            let mut split = line.split_whitespace();
+            let _prefix = split.next();
+            if let Some(val_str) = split.next() {
+                if let Ok(kb) = val_str.parse::<u64>() {
+                    return Ok(kb * 1024);
+                }
+            }
+        }
+    }
+    Err(io::Error::new(io::ErrorKind::NotFound, "VmRSS not found"))
 }
