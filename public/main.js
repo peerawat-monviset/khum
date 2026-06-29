@@ -74,12 +74,27 @@ async function updateMetrics() {
     }
 }
 
+const sysinfoEl = document.getElementById('sysinfo');
+
+async function loadSysInfo() {
+    try {
+        const response = await fetch('/api/sysinfo');
+        if (response.ok) {
+            const data = await response.json();
+            sysinfoEl.innerHTML = `VM: ${data.os} (${data.kernel})<br>Hardware: ${data.cpu_model} (${data.cpu_cores} Cores) | Total Host RAM: ${data.mem_total}`;
+        }
+    } catch (err) {
+        console.error("Failed to load VM info:", err);
+    }
+}
+
 basketInput.addEventListener('input', debounceUpdate);
 distanceInput.addEventListener('input', debounceUpdate);
 
 // Initial load
 updateComparison();
 updateMetrics();
+loadSysInfo();
 
 // Refresh server metrics every 5 seconds
 setInterval(updateMetrics, 5000);
