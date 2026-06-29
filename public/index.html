@@ -10,8 +10,12 @@
     <link rel="stylesheet" href="/main.css">
     <script>
         (function() {
-            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-            document.documentElement.setAttribute('data-theme', savedTheme);
+            const savedTheme = localStorage.getItem('theme') || 'system';
+            let resolved = savedTheme;
+            if (savedTheme === 'system') {
+                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', resolved);
         })();
     </script>
   <script type="module" crossorigin src="/main.js"></script>

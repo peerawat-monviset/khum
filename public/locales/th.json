@@ -24,5 +24,9 @@
     "sysPage": "Page Size",
     "sysNuma": "NUMA Nodes",
     "sysRam": "Host RAM",
-    "sysLoad": "Load Avg"
+    "sysLoad": "Load Avg",
+    "footerThemeDark": "โหมดมืด",
+    "footerThemeLight": "โหมดสว่าง",
+    "footerThemeSystem": "ระบบ",
+    "footerLang": "ไทย (ภาษาไทย)"
 }
